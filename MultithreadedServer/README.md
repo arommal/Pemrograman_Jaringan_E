@@ -1,4 +1,4 @@
-### 🚀 Run project
+### 🚀 Run Project
 
 1. Run 'Server.py'
 2. Run 'Client.py'
