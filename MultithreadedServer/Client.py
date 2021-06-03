@@ -1,7 +1,13 @@
+import datetime
 import socket
 import json
 import base64
 import logging
+import datetime
+import os
+from multiprocessing import Process
+
+server_address = ('127.0.0.1', 6666)
 
 def sendCommand(command_str = ""):
     global server_address
@@ -41,7 +47,7 @@ def remoteList():
         print("Failed")
         return False
 
-def remoteGet(filename=""):
+def remoteGet(filename="",index=1):
     command_str = f"GET {filename}"
     result = sendCommand(command_str)
     if result['status'] == 'OK':
@@ -56,6 +62,23 @@ def remoteGet(filename=""):
         return False
 
 if __name__ == '__main__':
-    server_address = ('127.0.0.1', 6666)
-    remoteList()
-    remoteGet('pokijan.jpg')
+    files = dict()
+
+    for i in range(100):
+        tp = str(int(i))
+        files[tp] = str("pokijan.jpg")
+
+    texec = dict()
+    begin = datetime.datetime.now()
+
+    for k in files:
+        print(f"Getting {files[k]}")
+        texec[k] = Process(target=remoteGet, args=(files[k],k))
+        texec[k].start()
+
+    for k in files:
+        texec[k].join()
+
+    end = datetime.datetime.now()
+    duration = end - begin
+    print(f"Total time required to request 100 files of pokijan.jpg is {duration} seconds")
