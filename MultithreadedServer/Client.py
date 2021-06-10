@@ -3,8 +3,6 @@ import socket
 import json
 import base64
 import logging
-import datetime
-import os
 from multiprocessing import Process
 
 server_address = ('127.0.0.1', 6666)
@@ -82,3 +80,5 @@ if __name__ == '__main__':
     end = datetime.datetime.now()
     duration = end - begin
     print(f"Total time required to request 100 files of pokijan.jpg is {duration} seconds")
+
+

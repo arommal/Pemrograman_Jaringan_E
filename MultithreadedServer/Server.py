@@ -46,3 +46,4 @@ class Server(threading.Thread):
 if __name__ == '__main__':
     server = Server(ipaddress='127.0.0.1', port=6666)
     server.start()
+
