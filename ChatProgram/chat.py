@@ -1,131 +1,91 @@
-import uuid
-import logging
 import socket
+import os
 import json
-from queue import Queue
 
-TARGET_IP = '127.0.0.1'
+TARGET_IP = "127.0.0.1"
 TARGET_PORT = 8889
 
-class Chat:
+class ChatClient:
     def __init__(self):
-        self.sessions = {}
-        self.users = {}
-        self.users['Rosa'] = {
-            'nama': 'Rosa Valentine',
-            'negara': 'Indonesia',
-            'password': 'asdasdasd',
-            'incoming': {},
-            'outgoing': {}
-        }
-        self.users['Afia'] = {
-            'nama': 'Afia Hana',
-            'negara': 'Indonesia',
-            'password': 'asdasdasd',
-            'incoming': {},
-            'outgoing': {}
-        }
-        self.users['Salsa'] = {
-            'nama': 'Salsabila Harlen',
-            'negara': 'Indonesia',
-            'password': 'asdasdasd',
-            'incoming': {},
-            'outgoing': {}
-        }
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_address = (TARGET_IP, TARGET_PORT)
+        self.server_address = (TARGET_IP,TARGET_PORT)
         self.sock.connect(self.server_address)
-        self.tokenid = ""
+        self.tokenid=""
 
-    def process(self, data):
-        j = data.split(" ")
-
+    def process(self,cmdline):
+        j=cmdline.split(" ")
         try:
-            cmd = j[0].strip()
-            if cmd == "auth":
+            command=j[0].strip()
+            if (command == 'auth'):
                 username = j[1].strip()
                 password = j[2].strip()
-                logging.warning("AUTH: auth {} {}" . format(username, password))
-                return self.authenticate(username, password)
-            elif cmd == "send":
-                session_id = self.tokenid
-                username_to = j[1].strip()
-                username_from = self.sessions[session_id]['username']
+                return self.login(username,password)
+            elif (command == 'send'):
+                usernameto = j[1].strip()
                 message = ""
                 for w in j[2:]:
-                    message = "{} {}" . format(message, w)
-                logging.warning("SEND: session {} send message from {} to {}" . format(session_id, username_from, username_to))
-                return self.sendMessage(username_from, username_to, message)
-            elif cmd == "inbox":
-                session_id = self.tokenid
-                username = self.sessions[session_id]['username']
-                logging.warning("INBOX: {}" . format(session_id))
-                return self.getInbox(username)
+                   message="{} {}" . format(message,w)
+                return self.sendmessage(usernameto,message)
+            elif (command == 'inbox'):
+                return self.inbox()
             else:
-                return {'status': 'ERROR', 'message': 'Incorrect Protocol'}
-        except KeyError:
-            return {'status': 'ERROR', 'message': 'Information Not Found'}
+                return "*Incorrect command"
         except IndexError:
-            return {'status': 'ERROR', 'message': 'Incorrect Protocol'}
+                return "-Incorrect command"
 
-    def authenticate(self, username, password):
-        if username not in self.users:
-            return {'status': 'ERROR', 'message': 'User Does Not Exist'}
-        if self.users[username]['password'] != password:
-            return {'status': 'ERROR', 'message': 'Incorrect Password'}
-        token_id = str(uuid.uuid4())
-        self.sessions[token_id] = {'username': username, 'userdetail': self.users[username]}
-        self.tokenid = token_id
-        return {'status': 'OK', 'tokenid': token_id}
-
-    def getUser(self, username):
-        if username not in self.users:
-            return False
-        return self.users[username]
-
-    def sendMessage(self, username_from, username_to, message):
-        if self.tokenid == "":
-            return {'status': 'ERROR', 'message': 'Session Not Found'}
-
-        sender = self.getUser(username_from)
-        receiver = self.getUser(username_to)
-
-        if sender == False or receiver == False:
-            return {'status': 'ERROR', 'message': 'User Not Found'}
-
-        message = {'from': sender['nama'], 'to': receiver['nama'], 'message': message}
-
-        outqueue = sender['outgoing']
-        inqueue = receiver['incoming']
-
+    def sendstring(self,string):
         try:
-            outqueue[username_from].put(message)
-        except KeyError:
-            outqueue[username_from] = Queue()
-            outqueue[username_from].put(message)
+            self.sock.sendall(string.encode())
+            receivemsg = ""
+            while True:
+                data = self.sock.recv(64)
+                if (data):
+                    receivemsg = "{}{}" . format(receivemsg,data.decode())
+                    if receivemsg[-4:] == '\r\n\r\n':
+                        return json.loads(receivemsg)
+        except:
+            self.sock.close()
+            return { 'status' : 'ERROR', 'message' : 'Gagal'}
 
-        try:
-            inqueue[username_from].put(message)
-        except KeyError:
-            inqueue[username_from] = Queue()
-            inqueue[username_from].put(message)
+    def login(self, username, password):
+        string = "auth {} {} \r\n" . format(username,password)
+        result = self.sendstring(string)
+        if result['status']=='OK':
+            self.tokenid = result['tokenid']
+            return "---------------------------------\nUser {} logged in\nToken: {} " . format(username,self.tokenid)
+        else:
+            return "Error, {}" . format(result['message'])
 
-        return {'status': 'OK', 'message': 'Message Sent'}
+    def sendmessage(self, usernameto, message):
+        if (self.tokenid==""):
+            return "Error, not authorized"
+        string = "send {} {} {} \r\n" . format(self.tokenid,usernameto,message)
+        result = self.sendstring(string)
+        if result['status']=='OK':
+            return "Message sent to {}" . format(usernameto)
+        else:
+            return "Error, {}" . format(result['message'])
 
-    def getInbox(self, username):
-        user = self.getUser(username)
-        incoming = user['incoming']
-        msgs = {}
-        for u in incoming:
-            msgs[u] = []
-            while not incoming[u].empty():
-                msgs[u].append(user['incoming'][u].get_nowait())
+    def inbox(self):
+        if (self.tokenid==""):
+            return "Error, not authorized"
+        string="inbox {} \r\n" . format(self.tokenid)
+        result = self.sendstring(string)
+        if result['status']=='OK':
+            print("-----------Your Inbox-----------")
+            for i in result['messages']:
+                print(result['messages'][i])
+            # print(result['messages'].i)
+            # for i in result:
+            #     print(result[i])
+        else:
+            return "Error, {}" . format(result['message'])
 
-        return {'status': 'OK', 'message': msgs}
 
 
 if __name__=="__main__":
-    j = Chat()
+    cc = ChatClient()
     while True:
-        cmdline = input("Command : ")
-        print(j.process(cmdline))
+        cmdline = input("Command {}: " . format(cc.tokenid))
+        print(cc.process(cmdline))
+
