@@ -19,8 +19,11 @@ class FileInterface:
 
         try:
             fp = open(f"{filename}", 'rb')
+            name_arr = filename.split(".")
+            nameonly = name_arr[0]
+            ext = name_arr[1]
             content = base64.b64encode(fp.read()).decode()
-            return dict(status='OK', data_namafile=filename, data_file=content)
+            return dict(status='OK', data_namafile=filename, data_file=content, data_nama=nameonly, data_ext=ext)
         except Exception as e:
             return dict(status='ERROR', data=str(e))
 

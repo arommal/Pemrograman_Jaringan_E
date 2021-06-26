@@ -32,13 +32,13 @@ class Server(threading.Thread):
         threading.Thread.__init__(self)
 
     def run(self):
-        logging.warning(f"Server is running on {self.ipinfo}")
+        print(f"Server is running on {self.ipinfo}")
         self.my_socket.bind(self.ipinfo)
         self.my_socket.listen(1)
 
         while True:
             self.connection, self.client_address = self.my_socket.accept()
-            logging.warning(f"Connection from {self.client_address}")
+            print(f"Connection from {self.client_address}")
             clt = ProcessClient(self.connection, self.client_address)
             clt.start()
             self.the_clients.append(clt)

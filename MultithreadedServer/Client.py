@@ -1,9 +1,9 @@
-import datetime
+from time import time
 import socket
 import json
 import base64
 import logging
-from multiprocessing import Process
+from multiprocessing import Process, Pool
 
 server_address = ('127.0.0.1', 6666)
 
@@ -45,15 +45,18 @@ def remoteList():
         print("Failed")
         return False
 
-def remoteGet(filename="",index=1):
+def remoteGet(filename="", count=1):
+    awal = time()
     command_str = f"GET {filename}"
     result = sendCommand(command_str)
     if result['status'] == 'OK':
-        filename = result['data_namafile']
+        filename = result['data_nama'] + str(count) + "." + result['data_ext'];
         content = base64.b64decode(result['data_file'])
         fp = open(filename, 'wb+')
         fp.write(content)
         fp.close()
+        akhir = time()
+        logging.warning(f"Getting {filename} in {akhir-awal}")
         return True
     else:
         print("Gagal")
@@ -67,17 +70,21 @@ if __name__ == '__main__':
         files[tp] = str("pokijan.jpg")
 
     texec = dict()
-    begin = datetime.datetime.now()
+    status_task = dict()
+    task_pool = Pool(processes=100)
+
+    begin = time()
+    count = 1
 
     for k in files:
         print(f"Getting {files[k]}")
-        texec[k] = Process(target=remoteGet, args=(files[k],k))
-        texec[k].start()
+        texec[k] = task_pool.apply_async(func=remoteGet, args=(files[k],count,))
+        count += 1
 
     for k in files:
-        texec[k].join()
+        status_task[k] = texec[k].get(timeout=10)
 
-    end = datetime.datetime.now()
+    end = time()
     duration = end - begin
     print(f"Total time required to request 100 files of pokijan.jpg is {duration} seconds")
 
